@@ -74,6 +74,12 @@ const BoatAssignmentManager = () => {
     return totalPeople <= availablePeople;
   };
 
+  const splitBySide = (arr) => ({
+    left: arr.filter(p => p.side === 'L'),
+    right: arr.filter(p => p.side === 'R'),
+    ambi: arr.filter(p => p.side === 'A')
+  });
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <div className="max-w-7xl mx-auto">
@@ -343,6 +349,189 @@ const BoatAssignmentManager = () => {
             </div>
           </div>
         )}
+        
+        {/* Full Roster */}
+        <div className="mt-16 border-t border-gray-200 pt-16">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Team Roster</h2>
+            <p className="text-lg text-gray-600">Complete list of available team members</p>
+          </div>
+          
+          {people.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+              <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <div className="text-xl text-gray-600">No team members loaded</div>
+            </div>
+          ) : (
+            <div className="grid lg:grid-cols-2 gap-12">
+              {/* Men's Team */}
+              {(() => {
+                const guys = people.filter(p => p.gender === 'M');
+                const groups = splitBySide(guys);
+                return (
+                  <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-8">
+                      <div className="flex items-center gap-3">
+                        <User className="w-8 h-8" />
+                        <div>
+                          <h3 className="text-2xl font-bold">Men's Team</h3>
+                          <p className="text-blue-100">{guys.length} athletes</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-8">
+                      <div className="grid gap-8">
+                        {/* Left-handed */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-6">
+                            <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
+                            <h4 className="text-lg font-semibold text-gray-900">Left-handed ({groups.left.length})</h4>
+                          </div>
+                          {groups.left.length > 0 ? (
+                            <div className="grid sm:grid-cols-2 gap-4">
+                              {groups.left.map((p, idx) => (
+                                <div key={`g-l-${idx}`} className="bg-indigo-50 rounded-lg p-4 border border-indigo-100 hover:shadow-md transition-shadow">
+                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-gray-500 bg-gray-50 rounded-lg p-6 text-center italic">No left-handed athletes</div>
+                          )}
+                        </div>
+
+                        {/* Right-handed */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-6">
+                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                            <h4 className="text-lg font-semibold text-gray-900">Right-handed ({groups.right.length})</h4>
+                          </div>
+                          {groups.right.length > 0 ? (
+                            <div className="grid sm:grid-cols-2 gap-4">
+                              {groups.right.map((p, idx) => (
+                                <div key={`g-r-${idx}`} className="bg-blue-50 rounded-lg p-4 border border-blue-100 hover:shadow-md transition-shadow">
+                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-gray-500 bg-gray-50 rounded-lg p-6 text-center italic">No right-handed athletes</div>
+                          )}
+                        </div>
+
+                        {/* Ambidextrous */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-6">
+                            <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                            <h4 className="text-lg font-semibold text-gray-900">Ambidextrous ({groups.ambi.length})</h4>
+                          </div>
+                          {groups.ambi.length > 0 ? (
+                            <div className="grid sm:grid-cols-2 gap-4">
+                              {groups.ambi.map((p, idx) => (
+                                <div key={`g-a-${idx}`} className="bg-purple-50 rounded-lg p-4 border border-purple-100 hover:shadow-md transition-shadow">
+                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-gray-500 bg-gray-50 rounded-lg p-6 text-center italic">No ambidextrous athletes</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Women's Team */}
+              {(() => {
+                const girls = people.filter(p => p.gender === 'F');
+                const groups = splitBySide(girls);
+                return (
+                  <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <div className="bg-gradient-to-r from-pink-600 to-rose-600 text-white p-8">
+                      <div className="flex items-center gap-3">
+                        <UserCheck className="w-8 h-8" />
+                        <div>
+                          <h3 className="text-2xl font-bold">Women's Team</h3>
+                          <p className="text-pink-100">{girls.length} athletes</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-8">
+                      <div className="grid gap-8">
+                        {/* Left-handed */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-6">
+                            <div className="w-3 h-3 bg-rose-500 rounded-full"></div>
+                            <h4 className="text-lg font-semibold text-gray-900">Left-handed ({groups.left.length})</h4>
+                          </div>
+                          {groups.left.length > 0 ? (
+                            <div className="grid sm:grid-cols-2 gap-4">
+                              {groups.left.map((p, idx) => (
+                                <div key={`f-l-${idx}`} className="bg-rose-50 rounded-lg p-4 border border-rose-100 hover:shadow-md transition-shadow">
+                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-gray-500 bg-gray-50 rounded-lg p-6 text-center italic">No left-handed athletes</div>
+                          )}
+                        </div>
+
+                        {/* Right-handed */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-6">
+                            <div className="w-3 h-3 bg-pink-500 rounded-full"></div>
+                            <h4 className="text-lg font-semibold text-gray-900">Right-handed ({groups.right.length})</h4>
+                          </div>
+                          {groups.right.length > 0 ? (
+                            <div className="grid sm:grid-cols-2 gap-4">
+                              {groups.right.map((p, idx) => (
+                                <div key={`f-r-${idx}`} className="bg-pink-50 rounded-lg p-4 border border-pink-100 hover:shadow-md transition-shadow">
+                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-gray-500 bg-gray-50 rounded-lg p-6 text-center italic">No right-handed athletes</div>
+                          )}
+                        </div>
+
+                        {/* Ambidextrous */}
+                        <div>
+                          <div className="flex items-center gap-2 mb-6">
+                            <div className="w-3 h-3 bg-violet-500 rounded-full"></div>
+                            <h4 className="text-lg font-semibold text-gray-900">Ambidextrous ({groups.ambi.length})</h4>
+                          </div>
+                          {groups.ambi.length > 0 ? (
+                            <div className="grid sm:grid-cols-2 gap-4">
+                              {groups.ambi.map((p, idx) => (
+                                <div key={`f-a-${idx}`} className="bg-violet-50 rounded-lg p-4 border border-violet-100 hover:shadow-md transition-shadow">
+                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-gray-500 bg-gray-50 rounded-lg p-6 text-center italic">No ambidextrous athletes</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
