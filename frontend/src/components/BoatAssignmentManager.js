@@ -81,9 +81,9 @@ const BoatAssignmentManager = () => {
         <div className="text-center mb-8">
           <div className="flex justify-center items-center gap-3 mb-4">
             <Ship className="w-10 h-10 text-blue-600" />
-            <h1 className="text-4xl font-bold text-gray-900">Boat Assignment Manager</h1>
+            <h1 className="text-4xl font-bold text-gray-900">DBZ Lineup Maker</h1>
           </div>
-          <p className="text-lg text-gray-600">Configure boats and optimize crew assignments</p>
+          <p className="text-lg text-gray-600">Configure boats and optimize weight distribution</p>
         </div>
 
         {!results ? (
@@ -104,7 +104,16 @@ const BoatAssignmentManager = () => {
                   <input
                     type="number"
                     value={currentBoat.size}
-                    onChange={(e) => setCurrentBoat(prev => ({ ...prev, size: parseInt(e.target.value) || 0 }))}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === '') {
+                        setCurrentBoat(prev => ({ ...prev, size: '' }));
+                        return;
+                      }
+                      const normalized = raw.replace(/^0+(?=\d)/, '');
+                      const parsed = parseInt(normalized, 10);
+                      setCurrentBoat(prev => ({ ...prev, size: Number.isNaN(parsed) ? '' : parsed }));
+                    }}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     min="2"
                     step="2"
