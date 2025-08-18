@@ -1,5 +1,5 @@
 cd backend
 python server.py
-cd ../
+
 cd frontend
 npm start

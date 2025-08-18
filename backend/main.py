@@ -168,7 +168,7 @@ def build_boat(people: List[Person], boats: List[Boat]) -> Dict[int, Tuple[List[
 
 # Example usage:
 if __name__ == "__main__":
-    data = parse_csv("roster.csv")
+    data = parse_csv("backend/roster.csv")
 
     # Example boats
     boats = [
@@ -178,6 +178,7 @@ if __name__ == "__main__":
     ]
 
     boat_assignments = build_boat(data, boats)
+    print(boat_assignments)
 
     for boat_idx, (left, right) in boat_assignments.items():
         print(f"\n=== BOAT {boat_idx + 1} ({boats[boat_idx].gender}, size {boats[boat_idx].size}) ===")
