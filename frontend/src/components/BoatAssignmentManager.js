@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Plus, Trash2, Users, Scale, CheckCircle, AlertCircle, Ship, UserCheck, User } from 'lucide-react';
+import { Plus, Trash2, Users, Scale, CheckCircle, AlertCircle, Ship, UserCheck, User, ArrowRight, ArrowLeft, RefreshCw } from 'lucide-react';
 
 // Backend API base URL
 const API_BASE = 'http://127.0.0.1:5000';
@@ -12,18 +12,33 @@ const BoatAssignmentManager = () => {
   const [people, setPeople] = useState([]);
 
   useEffect(() => {
-    const loadPeople = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/people`);
-        const data = await res.json();
-        setPeople(Array.isArray(data.people) ? data.people : []);
-      } catch (e) {
-        console.error('Failed to fetch people', e);
-        setPeople([]);
-      }
-    };
     loadPeople();
   }, []);
+
+  const loadPeople = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/people`);
+      const data = await res.json();
+      setPeople(Array.isArray(data.people) ? data.people : []);
+    } catch (e) {
+      console.error('Failed to fetch people', e);
+      setPeople([]);
+    }
+  };
+
+  const togglePerson = async (name, currentActiveStatus) => {
+    try {
+      const res = await fetch(`${API_BASE}/people/${encodeURIComponent(name)}/toggle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to toggle person');
+      await loadPeople(); // Refresh people list to reflect updated active status
+    } catch (e) {
+      console.error('Failed to toggle person', e);
+    }
+  };
 
   const addBoat = useCallback(() => {
     if (currentBoat.size > 0 && currentBoat.size % 2 === 0) {
@@ -59,6 +74,7 @@ const BoatAssignmentManager = () => {
   }, [boats, people]);
 
   const getTotalPeople = () => boats.reduce((sum, boat) => sum + boat.size, 0);
+
   const getGenderIcon = (gender) => {
     switch (gender) {
       case 'Open': return <User className="w-4 h-4" />;
@@ -70,7 +86,7 @@ const BoatAssignmentManager = () => {
 
   const validateBoats = () => {
     const totalPeople = getTotalPeople();
-    const availablePeople = people.length;
+    const availablePeople = people.filter(p => p.active).length;
     return totalPeople <= availablePeople;
   };
 
@@ -79,6 +95,132 @@ const BoatAssignmentManager = () => {
     right: arr.filter(p => p.side === 'R'),
     ambi: arr.filter(p => p.side === 'A')
   });
+
+  const getSubstitutionInfo = (boatIdx) => {
+    if (!results?.first_half || !results?.second_half) return null;
+
+    const firstHalf = results.first_half[boatIdx];
+    const secondHalf = results.second_half[boatIdx];
+
+    if (!firstHalf || !secondHalf) return null;
+
+    const firstHalfPeople = [...firstHalf.left, ...firstHalf.right];
+    const secondHalfPeople = [...secondHalf.left, ...secondHalf.right];
+
+    const firstHalfNames = new Set(firstHalfPeople.map(p => p.name));
+    const secondHalfNames = new Set(secondHalfPeople.map(p => p.name));
+
+    const switchingOff = firstHalfPeople.filter(p => !secondHalfNames.has(p.name));
+    const switchingOn = secondHalfPeople.filter(p => !firstHalfNames.has(p.name));
+    const continuing = firstHalfPeople.filter(p => secondHalfNames.has(p.name));
+
+    return { switchingOff, switchingOn, continuing };
+  };
+
+  const renderBoatAssignment = (boatIdx, half) => {
+    const boat = boats[boatIdx];
+    const assignment = results[half][boatIdx];
+
+    if (!assignment || !boat) return null;
+
+    const leftWeight = assignment.left.reduce((sum, p) => sum + p.weight, 0);
+    const rightWeight = assignment.right.reduce((sum, p) => sum + p.weight, 0);
+    const weightDiff = Math.abs(leftWeight - rightWeight);
+
+    return (
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Left Side */}
+        <div className="space-y-3">
+          <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+            Left Side ({assignment.left.length})
+          </h4>
+          <div className="text-sm text-gray-600 mb-3">
+            Total Weight: {leftWeight.toFixed(1)} lbs
+          </div>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {assignment.left.map((person, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div>
+                  <div className="font-medium text-gray-900">{person.name}</div>
+                  <div className="text-sm text-gray-600">
+                    {person.gender} • {person.side === 'A' ? 'Ambidextrous' : person.side === 'L' ? 'Left-handed' : 'Right-handed'}
+                  </div>
+                </div>
+                <div className="text-sm font-medium text-gray-900">
+                  {person.weight} lbs
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Side */}
+        <div className="space-y-3">
+          <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+            Right Side ({assignment.right.length})
+          </h4>
+          <div className="text-sm text-gray-600 mb-3">
+            Total Weight: {rightWeight.toFixed(1)} lbs
+          </div>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {assignment.right.map((person, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                <div>
+                  <div className="font-medium text-gray-900">{person.name}</div>
+                  <div className="text-sm text-gray-600">
+                    {person.gender} • {person.side === 'A' ? 'Ambidextrous' : person.side === 'L' ? 'Left-handed' : 'Right-handed'}
+                  </div>
+                </div>
+                <div className="text-sm font-medium text-gray-900">
+                  {person.weight} lbs
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderStatistics = (boatIdx, half) => {
+    const assignment = results[half][boatIdx];
+    if (!assignment) return null;
+
+    const leftWeight = assignment.left.reduce((sum, p) => sum + p.weight, 0);
+    const rightWeight = assignment.right.reduce((sum, p) => sum + p.weight, 0);
+    const weightDiff = Math.abs(leftWeight - rightWeight);
+
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-blue-600">
+            {assignment.left.filter(p => p.gender === 'M').length + assignment.right.filter(p => p.gender === 'M').length}
+          </div>
+          <div className="text-sm text-gray-600">Males</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-pink-600">
+            {assignment.left.filter(p => p.gender === 'F').length + assignment.right.filter(p => p.gender === 'F').length}
+          </div>
+          <div className="text-sm text-gray-600">Females</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-purple-600">
+            {(leftWeight + rightWeight).toFixed(1)}
+          </div>
+          <div className="text-sm text-gray-600">Total Weight</div>
+        </div>
+        <div className="text-center">
+          <div className={`text-2xl font-bold ${weightDiff < 10 ? 'text-green-600' : weightDiff < 25 ? 'text-yellow-600' : 'text-red-600'}`}>
+            {((weightDiff / (leftWeight + rightWeight)) * 100).toFixed(1)}%
+          </div>
+          <div className="text-sm text-gray-600">Imbalance</div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
@@ -191,12 +333,12 @@ const BoatAssignmentManager = () => {
                 <div className="border-t pt-4">
                   <div className="flex justify-between items-center mb-4">
                     <div className="text-sm text-gray-600">
-                      Total People Required: <span className="font-semibold">{getTotalPeople()}</span> / {people.length} available
+                      Total People Required: <span className="font-semibold">{getTotalPeople()}</span> / {people.filter(p => p.active).length} active
                     </div>
                     {!validateBoats() && (
                       <div className="flex items-center gap-1 text-red-600">
                         <AlertCircle className="w-4 h-4" />
-                        <span className="text-sm">Not enough people</span>
+                        <span className="text-sm">Not enough active people</span>
                       </div>
                     )}
                   </div>
@@ -218,7 +360,7 @@ const BoatAssignmentManager = () => {
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
                 <CheckCircle className="w-8 h-8 text-green-600" />
-                Assignment Results
+                Assignment Results - Two Halves
               </h2>
               <button
                 onClick={() => setResults(null)}
@@ -228,118 +370,131 @@ const BoatAssignmentManager = () => {
               </button>
             </div>
 
-            <div className="grid gap-6">
+            <div className="space-y-8">
               {boats.map((boat, boatIdx) => {
-                const assignment = results[boatIdx];
-                if (!assignment) return null;
+                const substitutionInfo = getSubstitutionInfo(boatIdx);
+                const firstHalf = results.first_half?.[boatIdx];
+                const secondHalf = results.second_half?.[boatIdx];
 
-                const leftWeight = assignment.left.reduce((sum, p) => sum + p.weight, 0);
-                const rightWeight = assignment.right.reduce((sum, p) => sum + p.weight, 0);
-                const weightDiff = Math.abs(leftWeight - rightWeight);
+                if (!firstHalf || !secondHalf) return null;
 
                 return (
                   <div key={boat.id} className="bg-white rounded-xl shadow-lg overflow-hidden">
+                    {/* Boat Header */}
                     <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <Ship className="w-8 h-8" />
-                          <div>
-                            <h3 className="text-2xl font-bold">Boat {boatIdx + 1}</h3>
-                            <p className="text-blue-100">{boat.gender} • {boat.size} people</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="flex items-center gap-2 text-blue-100">
-                            <Scale className="w-5 h-5" />
-                            <span>Weight Difference</span>
-                          </div>
-                          <div className="text-2xl font-bold">{weightDiff.toFixed(1)} lbs</div>
+                      <div className="flex items-center gap-3">
+                        <Ship className="w-8 h-8" />
+                        <div>
+                          <h3 className="text-2xl font-bold">Boat {boatIdx + 1}</h3>
+                          <p className="text-blue-100">{boat.gender} • {boat.size} people</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-6">
-                      <div className="grid md:grid-cols-2 gap-6">
-                        {/* Left Side */}
-                        <div className="space-y-3">
-                          <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                            <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                            Left Side ({assignment.left.length})
-                          </h4>
-                          <div className="text-sm text-gray-600 mb-3">
-                            Total Weight: {leftWeight.toFixed(1)} lbs
-                          </div>
-                          <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {assignment.left.map((person, idx) => (
-                              <div key={idx} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                                <div>
-                                  <div className="font-medium text-gray-900">{person.name}</div>
-                                  <div className="text-sm text-gray-600">
-                                    {person.gender} • {person.side === 'A' ? 'Ambidextrous' : person.side === 'L' ? 'Left-handed' : 'Right-handed'}
-                                  </div>
-                                </div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {person.weight} lbs
-                                </div>
-                              </div>
-                            ))}
+                    <div className="p-6 space-y-8">
+                      {/* First Half */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                          <h4 className="text-xl font-bold text-gray-900">First Half</h4>
+                          <div className="flex items-center gap-2 text-sm text-gray-600 ml-4">
+                            <Scale className="w-4 h-4" />
+                            <span>Weight Diff: {Math.abs(
+                              firstHalf.left.reduce((sum, p) => sum + p.weight, 0) -
+                              firstHalf.right.reduce((sum, p) => sum + p.weight, 0)
+                            ).toFixed(1)} lbs</span>
                           </div>
                         </div>
 
-                        {/* Right Side */}
-                        <div className="space-y-3">
-                          <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                            Right Side ({assignment.right.length})
-                          </h4>
-                          <div className="text-sm text-gray-600 mb-3">
-                            Total Weight: {rightWeight.toFixed(1)} lbs
-                          </div>
-                          <div className="space-y-2 max-h-64 overflow-y-auto">
-                            {assignment.right.map((person, idx) => (
-                              <div key={idx} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                <div>
-                                  <div className="font-medium text-gray-900">{person.name}</div>
-                                  <div className="text-sm text-gray-600">
-                                    {person.gender} • {person.side === 'A' ? 'Ambidextrous' : person.side === 'L' ? 'Left-handed' : 'Right-handed'}
-                                  </div>
-                                </div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {person.weight} lbs
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                        {renderBoatAssignment(boatIdx, 'first_half')}
+
+                        <div className="mt-6 pt-6 border-t border-gray-200">
+                          {renderStatistics(boatIdx, 'first_half')}
                         </div>
                       </div>
 
-                      {/* Statistics */}
-                      <div className="mt-6 pt-6 border-t border-gray-200">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-blue-600">
-                              {assignment.left.filter(p => p.gender === 'M').length + assignment.right.filter(p => p.gender === 'M').length}
-                            </div>
-                            <div className="text-sm text-gray-600">Males</div>
+                      {/* Substitution Section */}
+                      {substitutionInfo && (substitutionInfo.switchingOff.length > 0 || substitutionInfo.switchingOn.length > 0) && (
+                        <div className="bg-gray-50 rounded-lg p-6">
+                          <div className="flex items-center gap-2 mb-4">
+                            <RefreshCw className="w-5 h-5 text-orange-600" />
+                            <h4 className="text-lg font-bold text-gray-900">Substitutions</h4>
                           </div>
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-pink-600">
-                              {assignment.left.filter(p => p.gender === 'F').length + assignment.right.filter(p => p.gender === 'F').length}
+
+                          <div className="grid md:grid-cols-2 gap-6">
+                            {/* Switching Off */}
+                            <div>
+                              <div className="flex items-center gap-2 mb-3">
+                                <ArrowLeft className="w-4 h-4 text-red-600" />
+                                <h5 className="font-semibold text-gray-900">Switching Off ({substitutionInfo.switchingOff.length})</h5>
+                              </div>
+                              <div className="space-y-2">
+                                {substitutionInfo.switchingOff.map((person, idx) => (
+                                  <div key={idx} className="flex items-center justify-between p-3 bg-red-50 rounded-lg border border-red-100">
+                                    <div>
+                                      <div className="font-medium text-gray-900">{person.name}</div>
+                                      <div className="text-sm text-gray-600">
+                                        {person.gender} • {person.side === 'A' ? 'Ambidextrous' : person.side === 'L' ? 'Left-handed' : 'Right-handed'}
+                                      </div>
+                                    </div>
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {person.weight} lbs
+                                    </div>
+                                  </div>
+                                ))}
+                                {substitutionInfo.switchingOff.length === 0 && (
+                                  <div className="text-gray-500 text-sm italic">No substitutions out</div>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-600">Females</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-purple-600">
-                              {(leftWeight + rightWeight).toFixed(1)}
+
+                            {/* Switching On */}
+                            <div>
+                              <div className="flex items-center gap-2 mb-3">
+                                <ArrowRight className="w-4 h-4 text-green-600" />
+                                <h5 className="font-semibold text-gray-900">Switching On ({substitutionInfo.switchingOn.length})</h5>
+                              </div>
+                              <div className="space-y-2">
+                                {substitutionInfo.switchingOn.map((person, idx) => (
+                                  <div key={idx} className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-100">
+                                    <div>
+                                      <div className="font-medium text-gray-900">{person.name}</div>
+                                      <div className="text-sm text-gray-600">
+                                        {person.gender} • {person.side === 'A' ? 'Ambidextrous' : person.side === 'L' ? 'Left-handed' : 'Right-handed'}
+                                      </div>
+                                    </div>
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {person.weight} lbs
+                                    </div>
+                                  </div>
+                                ))}
+                                {substitutionInfo.switchingOn.length === 0 && (
+                                  <div className="text-gray-500 text-sm italic">No substitutions in</div>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-sm text-gray-600">Total Weight</div>
                           </div>
-                          <div className="text-center">
-                            <div className={`text-2xl font-bold ${weightDiff < 10 ? 'text-green-600' : weightDiff < 25 ? 'text-yellow-600' : 'text-red-600'}`}>
-                              {((weightDiff / (leftWeight + rightWeight)) * 100).toFixed(1)}%
-                            </div>
-                            <div className="text-sm text-gray-600">Imbalance</div>
+                        </div>
+                      )}
+
+                      {/* Second Half */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
+                          <h4 className="text-xl font-bold text-gray-900">Second Half</h4>
+                          <div className="flex items-center gap-2 text-sm text-gray-600 ml-4">
+                            <Scale className="w-4 h-4" />
+                            <span>Weight Diff: {Math.abs(
+                              secondHalf.left.reduce((sum, p) => sum + p.weight, 0) -
+                              secondHalf.right.reduce((sum, p) => sum + p.weight, 0)
+                            ).toFixed(1)} lbs</span>
                           </div>
+                        </div>
+
+                        {renderBoatAssignment(boatIdx, 'second_half')}
+
+                        <div className="mt-6 pt-6 border-t border-gray-200">
+                          {renderStatistics(boatIdx, 'second_half')}
                         </div>
                       </div>
                     </div>
@@ -349,14 +504,14 @@ const BoatAssignmentManager = () => {
             </div>
           </div>
         )}
-        
+
         {/* Full Roster */}
         <div className="mt-16 border-t border-gray-200 pt-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Team Roster</h2>
             <p className="text-lg text-gray-600">Complete list of available team members</p>
           </div>
-          
+
           {people.length === 0 ? (
             <div className="bg-white rounded-xl shadow-lg p-12 text-center">
               <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -375,11 +530,11 @@ const BoatAssignmentManager = () => {
                         <User className="w-8 h-8" />
                         <div>
                           <h3 className="text-2xl font-bold">Men's Team</h3>
-                          <p className="text-blue-100">{guys.length} athletes</p>
+                          <p className="text-blue-100">{guys.length} athletes ({groups.left.length + groups.right.length + groups.ambi.length} active)</p>
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="p-8">
                       <div className="grid gap-8">
                         {/* Left-handed */}
@@ -391,9 +546,21 @@ const BoatAssignmentManager = () => {
                           {groups.left.length > 0 ? (
                             <div className="grid sm:grid-cols-2 gap-4">
                               {groups.left.map((p, idx) => (
-                                <div key={`g-l-${idx}`} className="bg-indigo-50 rounded-lg p-4 border border-indigo-100 hover:shadow-md transition-shadow">
-                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
-                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                <div key={`g-l-${idx}`} className="bg-indigo-50 rounded-lg p-4 border border-indigo-100 hover:shadow-md transition-shadow flex justify-between items-center">
+                                  <div>
+                                    <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                    <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={p.active}
+                                      onChange={() => togglePerson(p.name, p.active)}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:bg-blue-600"></div>
+                                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                                  </label>
                                 </div>
                               ))}
                             </div>
@@ -411,9 +578,21 @@ const BoatAssignmentManager = () => {
                           {groups.right.length > 0 ? (
                             <div className="grid sm:grid-cols-2 gap-4">
                               {groups.right.map((p, idx) => (
-                                <div key={`g-r-${idx}`} className="bg-blue-50 rounded-lg p-4 border border-blue-100 hover:shadow-md transition-shadow">
-                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
-                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                <div key={`g-r-${idx}`} className="bg-blue-50 rounded-lg p-4 border border-blue-100 hover:shadow-md transition-shadow flex justify-between items-center">
+                                  <div>
+                                    <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                    <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={p.active}
+                                      onChange={() => togglePerson(p.name, p.active)}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:bg-blue-600"></div>
+                                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                                  </label>
                                 </div>
                               ))}
                             </div>
@@ -431,9 +610,21 @@ const BoatAssignmentManager = () => {
                           {groups.ambi.length > 0 ? (
                             <div className="grid sm:grid-cols-2 gap-4">
                               {groups.ambi.map((p, idx) => (
-                                <div key={`g-a-${idx}`} className="bg-purple-50 rounded-lg p-4 border border-purple-100 hover:shadow-md transition-shadow">
-                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
-                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                <div key={`g-a-${idx}`} className="bg-purple-50 rounded-lg p-4 border border-purple-100 hover:shadow-md transition-shadow flex justify-between items-center">
+                                  <div>
+                                    <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                    <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={p.active}
+                                      onChange={() => togglePerson(p.name, p.active)}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:bg-blue-600"></div>
+                                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                                  </label>
                                 </div>
                               ))}
                             </div>
@@ -458,11 +649,11 @@ const BoatAssignmentManager = () => {
                         <UserCheck className="w-8 h-8" />
                         <div>
                           <h3 className="text-2xl font-bold">Women's Team</h3>
-                          <p className="text-pink-100">{girls.length} athletes</p>
+                          <p className="text-pink-100">{girls.length} athletes ({groups.left.length + groups.right.length + groups.ambi.length} active)</p>
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="p-8">
                       <div className="grid gap-8">
                         {/* Left-handed */}
@@ -474,9 +665,21 @@ const BoatAssignmentManager = () => {
                           {groups.left.length > 0 ? (
                             <div className="grid sm:grid-cols-2 gap-4">
                               {groups.left.map((p, idx) => (
-                                <div key={`f-l-${idx}`} className="bg-rose-50 rounded-lg p-4 border border-rose-100 hover:shadow-md transition-shadow">
-                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
-                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                <div key={`f-l-${idx}`} className="bg-rose-50 rounded-lg p-4 border border-rose-100 hover:shadow-md transition-shadow flex justify-between items-center">
+                                  <div>
+                                    <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                    <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={p.active}
+                                      onChange={() => togglePerson(p.name, p.active)}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:bg-blue-600"></div>
+                                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                                  </label>
                                 </div>
                               ))}
                             </div>
@@ -494,9 +697,21 @@ const BoatAssignmentManager = () => {
                           {groups.right.length > 0 ? (
                             <div className="grid sm:grid-cols-2 gap-4">
                               {groups.right.map((p, idx) => (
-                                <div key={`f-r-${idx}`} className="bg-pink-50 rounded-lg p-4 border border-pink-100 hover:shadow-md transition-shadow">
-                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
-                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                <div key={`f-r-${idx}`} className="bg-pink-50 rounded-lg p-4 border border-pink-100 hover:shadow-md transition-shadow flex justify-between items-center">
+                                  <div>
+                                    <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                    <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={p.active}
+                                      onChange={() => togglePerson(p.name, p.active)}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:bg-blue-600"></div>
+                                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                                  </label>
                                 </div>
                               ))}
                             </div>
@@ -514,9 +729,21 @@ const BoatAssignmentManager = () => {
                           {groups.ambi.length > 0 ? (
                             <div className="grid sm:grid-cols-2 gap-4">
                               {groups.ambi.map((p, idx) => (
-                                <div key={`f-a-${idx}`} className="bg-violet-50 rounded-lg p-4 border border-violet-100 hover:shadow-md transition-shadow">
-                                  <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
-                                  <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                <div key={`f-a-${idx}`} className="bg-violet-50 rounded-lg p-4 border border-violet-100 hover:shadow-md transition-shadow flex justify-between items-center">
+                                  <div>
+                                    <div className="font-semibold text-gray-900 text-base mb-1">{p.name}</div>
+                                    <div className="text-sm text-gray-600 font-medium">{p.weight} lbs</div>
+                                  </div>
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={p.active}
+                                      onChange={() => togglePerson(p.name, p.active)}
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:bg-blue-600"></div>
+                                    <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+                                  </label>
                                 </div>
                               ))}
                             </div>
