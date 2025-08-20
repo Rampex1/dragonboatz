@@ -5,7 +5,6 @@ from main import parse_csv, Boat, build_boat
 app = Flask(__name__)
 CORS(app)
 
-
 @app.route('/people', methods=['GET'])
 def list_people():
     try:
@@ -23,7 +22,6 @@ def list_people():
     except Exception as exc:
         return jsonify({'error': str(exc)}), 400
 
-
 @app.route('/assignments', methods=['POST'])
 def create_assignments():
     try:
@@ -37,13 +35,42 @@ def create_assignments():
             boats.append(Boat(size=size, gender=gender))
 
         people = parse_csv('roster.csv')
-
         result = build_boat(people, boats)
 
         # Serialize dataclasses to dicts for JSON response
-        serialized = {}
-        for idx, (left_side, right_side) in result.items():
-            serialized[str(idx)] = {
+        serialized = {
+            'first_half': {},
+            'second_half': {}
+        }
+
+        # Serialize first_half
+        for idx in result['first_half']:
+            left_side, right_side = result['first_half'][idx]
+            serialized['first_half'][str(idx)] = {
+                'left': [
+                    {
+                        'name': p.name,
+                        'gender': p.gender,
+                        'weight': p.weight,
+                        'side': p.side,
+                    }
+                    for p in left_side
+                ],
+                'right': [
+                    {
+                        'name': p.name,
+                        'gender': p.gender,
+                        'weight': p.weight,
+                        'side': p.side,
+                    }
+                    for p in right_side
+                ],
+            }
+
+        # Serialize second_half
+        for idx in result['second_half']:
+            left_side, right_side = result['second_half'][idx]
+            serialized['second_half'][str(idx)] = {
                 'left': [
                     {
                         'name': p.name,
@@ -68,8 +95,5 @@ def create_assignments():
     except Exception as exc:
         return jsonify({'error': str(exc)}), 400
 
-
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=False)
-
-
