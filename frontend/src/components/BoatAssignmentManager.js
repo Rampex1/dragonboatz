@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Plus, Trash2, Users, Scale, CheckCircle, AlertCircle, Ship, UserCheck, User, ArrowRight, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Users, Scale, CheckCircle, AlertCircle, Ship, UserCheck, User, ArrowRight, ArrowLeft, RefreshCw, ToggleRight } from 'lucide-react';
 
 // Backend API base URL
 const API_BASE = 'http://127.0.0.1:5000';
@@ -34,9 +34,25 @@ const BoatAssignmentManager = () => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to toggle person');
-      await loadPeople(); // Refresh people list to reflect updated active status
+      await loadPeople();
     } catch (e) {
       console.error('Failed to toggle person', e);
+    }
+  };
+
+  const toggleAllPeople = async () => {
+    try {
+      const allActive = people.every(p => p.active);
+      const res = await fetch(`${API_BASE}/people/toggle-all`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !allActive })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to toggle all people');
+      await loadPeople();
+    } catch (e) {
+      console.error('Failed to toggle all people', e);
     }
   };
 
@@ -509,7 +525,13 @@ const BoatAssignmentManager = () => {
         <div className="mt-16 border-t border-gray-200 pt-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Team Roster</h2>
-            <p className="text-lg text-gray-600">Complete list of available team members</p>
+            <button
+              onClick={toggleAllPeople}
+              className="mt-4 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 mx-auto"
+            >
+              <ToggleRight className="w-5 h-5" />
+              {people.every(p => p.active) ? 'Deactivate All' : 'Activate All'}
+            </button>
           </div>
 
           {people.length === 0 ? (
@@ -530,7 +552,7 @@ const BoatAssignmentManager = () => {
                         <User className="w-8 h-8" />
                         <div>
                           <h3 className="text-2xl font-bold">Men's Team</h3>
-                          <p className="text-blue-100">{guys.length} athletes ({groups.left.length + groups.right.length + groups.ambi.length} active)</p>
+                          <p className="text-blue-100">{guys.length} athletes ({guys.filter(p => p.active).length} active)</p>
                         </div>
                       </div>
                     </div>
@@ -649,7 +671,7 @@ const BoatAssignmentManager = () => {
                         <UserCheck className="w-8 h-8" />
                         <div>
                           <h3 className="text-2xl font-bold">Women's Team</h3>
-                          <p className="text-pink-100">{girls.length} athletes ({groups.left.length + groups.right.length + groups.ambi.length} active)</p>
+                          <p className="text-pink-100">{girls.length} athletes ({girls.filter(p => p.active).length} active)</p>
                         </div>
                       </div>
                     </div>

@@ -56,3 +56,5 @@ __pycache__/
 # Build artifacts
 dist/
 build/
+
+/backend/google-sheets-credentials.json

@@ -81,6 +81,29 @@ def toggle_person(name):
         return jsonify({'error': str(exc)}), 400
 
 
+@app.route('/people/toggle-all', methods=['POST'])
+def toggle_all_people():
+    try:
+        initialize_active_roster()
+        payload = request.get_json(force=True) or {}
+        set_active = payload.get('active', True)
+
+        if set_active:
+            # Copy all people from roster.csv to roster-active.csv
+            copyfile(ROSTER_FILE, ACTIVE_ROSTER_FILE)
+            message = "All people activated"
+        else:
+            # Clear roster-active.csv (write only header)
+            with open(ACTIVE_ROSTER_FILE, 'w', newline='', encoding='utf-8') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=['Name', 'Gender', 'Side', 'Weight'])
+                writer.writeheader()
+            message = "All people deactivated"
+
+        return jsonify({'message': message}), 200
+    except Exception as exc:
+        return jsonify({'error': str(exc)}), 400
+
+
 @app.route('/assignments', methods=['POST'])
 def create_assignments():
     try:
