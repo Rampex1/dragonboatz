@@ -588,7 +588,7 @@ const BoatAssignmentManager = () => {
                 className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
               >
                 <Download className="w-5 h-5" />
-                Scrape Google Sheets
+                Scrape Google Sheets Attendance
               </button>
               <button
                 onClick={openModal}
