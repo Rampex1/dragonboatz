@@ -5,13 +5,16 @@ import numpy as np
 import textwrap
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
+from pathlib import Path
 
 # --- CONFIGURATION ---
-INPUT_FILE = "factions.csv"
+BASE_DIR = Path(__file__).parent
+
+INPUT_FILE = BASE_DIR / "factions.csv"
 TEAM_HIGHLIGHT = "David"
-OUTPUT_WEEKLY = "factions_weekly_progress.png"
-OUTPUT_DISTRIBUTION = "factions_score_distribution.png"
-OUTPUT_LEADERBOARD = "factions_top_10_mvp.png"
+OUTPUT_WEEKLY = BASE_DIR / "images/factions_weekly_progress.png"
+OUTPUT_DISTRIBUTION = BASE_DIR / "images/factions_score_distribution.png"
+OUTPUT_LEADERBOARD = BASE_DIR / "factions_top_10_mvp.png"
 
 
 def load_data(filepath):
