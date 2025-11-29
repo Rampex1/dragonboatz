@@ -57,4 +57,4 @@ __pycache__/
 dist/
 build/
 
-/backend/google-sheets-credentials.json
+/backend/google-sheets-credentials.jsonlineup/backend/google-sheets-credentials.json
