@@ -305,7 +305,10 @@ def plot_top_10_leaderboard(df):
 
 def create_balanced_teams(df, num_teams=5):
     """
-    Creates balanced teams based on total points.
+    Creates balanced teams with priority:
+    1. Equal number of members (max difference of 1)
+    2. Total points balance
+    3. Gender distribution
     Constraint: Meng Jia, David Zhou, Feng, Orlando, Vincent must be on different teams.
     """
     print("Creating Balanced Teams...")
@@ -320,7 +323,7 @@ def create_balanced_teams(df, num_teams=5):
     constrained_players = ["Meng Jia", "David Zhou", "Feng", "Orlando", "Vincent"]
 
     # 4. Initialize teams
-    teams = {f"Team {i + 1}": {"players": [], "total_points": 0} for i in range(num_teams)}
+    teams = {f"Team {i + 1}": {"players": [], "total_points": 0, "men": 0, "women": 0} for i in range(num_teams)}
     team_names = list(teams.keys())
 
     # 5. Assign constrained players to different teams first
@@ -331,55 +334,124 @@ def create_balanced_teams(df, num_teams=5):
         if not player_row.empty:
             player_row = player_row.iloc[0]
             team_name = team_names[i % num_teams]
+            gender = player_row["Gender"]
+
             teams[team_name]["players"].append({
                 "name": player_row["Name"],
-                "points": player_row["TOTAL"]
+                "points": player_row["TOTAL"],
+                "gender": gender
             })
             teams[team_name]["total_points"] += player_row["TOTAL"]
+            if gender == "M":
+                teams[team_name]["men"] += 1
+            elif gender == "F":
+                teams[team_name]["women"] += 1
+
             constrained_assigned.append(player_row["Name"])
-            print(f"Assigned {player_row['Name']} ({int(player_row['TOTAL'])} pts) to {team_name}")
+            print(f"Assigned {player_row['Name']} ({gender}, {int(player_row['TOTAL'])} pts) to {team_name}")
 
     # 6. Get remaining players
     remaining_players = df_sorted[~df_sorted["Name"].isin(constrained_assigned)].copy()
 
-    # 7. Assign remaining players using a balanced approach (snake draft)
+    print(f"\nRemaining: {len(remaining_players)} players")
+
+    # 7. Assign remaining players using a balanced approach
+    # Priority: 1) team size, 2) total points, 3) gender balance
+
     for idx, row in remaining_players.iterrows():
-        # Find team with lowest total points
-        min_team = min(teams.items(), key=lambda x: x[1]["total_points"])
-        team_name = min_team[0]
+        # Calculate gender imbalance for each team (absolute difference from ideal ratio)
+        total_men_assigned = sum(team["men"] for team in teams.values())
+        total_women_assigned = sum(team["women"] for team in teams.values())
+        total_assigned = total_men_assigned + total_women_assigned
+
+        if total_assigned > 0:
+            ideal_men_ratio = total_men_assigned / total_assigned
+            ideal_women_ratio = total_women_assigned / total_assigned
+        else:
+            ideal_men_ratio = 0.5
+            ideal_women_ratio = 0.5
+
+        # Score each team
+        team_scores = []
+        for team_name, team in teams.items():
+            team_size = len(team["players"])
+
+            # Calculate what the ratios would be after adding this player
+            new_total = team_size + 1
+            if row["Gender"] == "M":
+                new_men_ratio = (team["men"] + 1) / new_total
+                new_women_ratio = team["women"] / new_total
+            elif row["Gender"] == "F":
+                new_men_ratio = team["men"] / new_total
+                new_women_ratio = (team["women"] + 1) / new_total
+            else:
+                new_men_ratio = team["men"] / new_total if new_total > 0 else 0
+                new_women_ratio = team["women"] / new_total if new_total > 0 else 0
+
+            # Gender imbalance score (lower is better)
+            gender_imbalance = abs(new_men_ratio - ideal_men_ratio) + abs(new_women_ratio - ideal_women_ratio)
+
+            team_scores.append((team_name, team_size, team["total_points"], gender_imbalance))
+
+        # Sort by: 1) team size (ascending), 2) total points (ascending), 3) gender imbalance (ascending)
+        team_scores.sort(key=lambda x: (x[1], x[2], x[3]))
+        team_name = team_scores[0][0]
 
         teams[team_name]["players"].append({
             "name": row["Name"],
-            "points": row["TOTAL"]
+            "points": row["TOTAL"],
+            "gender": row["Gender"]
         })
         teams[team_name]["total_points"] += row["TOTAL"]
+        if row["Gender"] == "M":
+            teams[team_name]["men"] += 1
+        elif row["Gender"] == "F":
+            teams[team_name]["women"] += 1
 
     # 8. Print results
-    print("\n" + "=" * 70)
+    print("\n" + "=" * 80)
     print("BALANCED TEAM ASSIGNMENTS")
-    print("=" * 70)
+    print("=" * 80)
 
     for team_name in team_names:
         team = teams[team_name]
-        print(f"\n{team_name} - Total Points: {int(team['total_points'])}")
-        print("-" * 70)
+        print(f"\n{team_name} - Total Points: {int(team['total_points'])} | "
+              f"Men: {team['men']} | Women: {team['women']} | "
+              f"Total: {len(team['players'])}")
+        print("-" * 80)
         for i, player in enumerate(team["players"], start=1):
-            print(f"  {i:2d}. {player['name']:<40s} {int(player['points']):>4d} pts")
+            print(f"  {i:2d}. {player['name']:<40s} ({player['gender']}) {int(player['points']):>4d} pts")
 
-    print("\n" + "=" * 70)
-    print("TEAM POINT SUMMARY")
-    print("=" * 70)
+    print("\n" + "=" * 80)
+    print("TEAM SUMMARY")
+    print("=" * 80)
+
+    team_sizes = []
     for team_name in team_names:
-        print(f"{team_name}: {int(teams[team_name]['total_points']):>5d} points "
-              f"({len(teams[team_name]['players'])} players)")
+        team = teams[team_name]
+        team_size = len(team['players'])
+        team_sizes.append(team_size)
+        print(f"{team_name}: {int(team['total_points']):>5d} points | "
+              f"{team['men']:>2d} M / {team['women']:>2d} F | "
+              f"{team_size} total players")
 
     # Calculate balance metrics
     total_points = [teams[team]["total_points"] for team in team_names]
+    total_men = [teams[team]["men"] for team in team_names]
+    total_women = [teams[team]["women"] for team in team_names]
+
     avg_points = sum(total_points) / len(total_points)
-    max_diff = max(total_points) - min(total_points)
-    print(f"\nAverage Team Points: {int(avg_points)}")
-    print(f"Max Point Difference: {int(max_diff)}")
-    print("=" * 70 + "\n")
+    max_point_diff = max(total_points) - min(total_points)
+    max_size_diff = max(team_sizes) - min(team_sizes)
+    max_men_diff = max(total_men) - min(total_men)
+    max_women_diff = max(total_women) - min(total_women)
+
+    print(f"\nMax Team Size Difference: {max_size_diff}")
+    print(f"Average Team Points: {int(avg_points)}")
+    print(f"Max Point Difference: {int(max_point_diff)}")
+    print(f"Max Men Difference: {max_men_diff}")
+    print(f"Max Women Difference: {max_women_diff}")
+    print("=" * 80 + "\n")
 
     return teams
 
