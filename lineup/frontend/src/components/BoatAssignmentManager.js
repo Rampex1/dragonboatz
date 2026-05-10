@@ -2,12 +2,13 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Plus, Trash2, Users, Scale, CheckCircle, AlertCircle, Ship, UserCheck, User, ArrowRight, ArrowLeft, RefreshCw, ToggleRight, Download, FileText } from 'lucide-react';
 
 // Backend API base URL
-const API_BASE = 'http://127.0.0.1:5000';
+const API_BASE = 'http://127.0.0.1:5001';
 
 const BoatAssignmentManager = () => {
   const [boats, setBoats] = useState([]);
   const [results, setResults] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [assignmentError, setAssignmentError] = useState(null);
   const [currentBoat, setCurrentBoat] = useState({ size: 20, gender: 'Mixed' });
   const [people, setPeople] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -121,6 +122,7 @@ const BoatAssignmentManager = () => {
 
     try {
       setIsLoading(true);
+      setAssignmentError(null);
       const payload = { boats: boats.map(b => ({ size: b.size, gender: b.gender })) };
       const res = await fetch(`${API_BASE}/assignments`, {
         method: 'POST',
@@ -132,6 +134,7 @@ const BoatAssignmentManager = () => {
       setResults(data.assignments || {});
     } catch (e) {
       console.error(e);
+      setAssignmentError(e.message);
       setResults(null);
     } finally {
       setIsLoading(false);
@@ -415,6 +418,12 @@ const BoatAssignmentManager = () => {
                   >
                     {isLoading ? 'Optimizing Assignments...' : 'Generate Optimal Assignments'}
                   </button>
+                  {assignmentError && (
+                    <div className="flex items-center gap-2 text-red-600 bg-red-50 border border-red-200 rounded-lg p-3 mt-2">
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      <span className="text-sm">{assignmentError}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
